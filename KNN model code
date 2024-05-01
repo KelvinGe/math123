@@ -1,0 +1,386 @@
+from google.colab import files
+uploaded =files.upload()
+
+import numpy as np
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+import struct
+
+image_test_array, label_test_array, image_train_array, label_train_array = uploaded
+
+def read_idx(filename):
+    with open(filename, 'rb') as f:
+        zero, data_type, dims = struct.unpack('>HBB', f.read(4))
+        shape = tuple(struct.unpack('>I', f.read(4))[0] for d in range(dims))
+        return np.fromstring(f.read(), dtype=np.uint8).reshape(shape)
+
+image_test_array = read_idx(image_test_array)
+label_test_array = read_idx(label_test_array)
+image_train_array = read_idx(image_train_array)
+label_train_array = read_idx(label_train_array)
+
+n = 1000
+image_test_array = image_test_array[:300]
+label_test_array = label_test_array[:300]
+image_train_array = image_train_array[:n]
+label_train_array = label_train_array[:n]
+(l,m,n) = image_train_array.shape
+(k,i,j) = image_test_array.shape
+image_train_2d = image_train_array.reshape(l,m*n)
+image_test_2d = image_test_array.reshape(k,i*j)
+
+print(image_test_array.shape)
+print(label_test_array.shape)
+print(image_train_array.shape)
+print(label_train_array.shape)
+
+from collections import Counter
+
+print(sorted(Counter(label_test_array.tolist()).items()))
+print(sorted(Counter(label_train_array.tolist()).items()))
+
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report
+
+# Flatten the images for training since k-NN requires 1D vectors
+# Each image is 28x28, flatten it to be a single array of 784 elements
+image_train_flattened = image_train_array.reshape((1000, -1))
+print(image_train_flattened.shape)
+
+# Initialize the k-NN classifier
+knn_classifier = KNeighborsClassifier(n_neighbors=3)
+
+# Train the classifier on the training data
+knn_classifier.fit(image_train_flattened, label_train_array)
+
+# Assuming you have a test set, let's say you want to flatten it as well
+# Replace 'test_image' with your actual test image data variable
+test_image_flattened = np.array(image_test_array).reshape((len(image_test_array), -1))
+test_label_array = np.array(label_test_array)
+
+# Predict labels for the test set
+test_predictions = knn_classifier.predict(test_image_flattened)
+
+# Calculate the accuracy of the modelaccuracy = accuracy_score(test_label_array, test_predictions)
+accuracy = accuracy_score(test_label_array, test_predictions)
+print(f'Model accuracy on test data: {accuracy:.2f}')
+print(classification_report(test_label_array, test_predictions))
+
+import numpy as np
+import struct
+from array import array
+from os.path  import join
+
+#
+# MNIST Data Loader Class
+#
+class MnistDataloader(object):
+    def __init__(self, training_images_filepath,training_labels_filepath,
+                 test_images_filepath, test_labels_filepath):
+        self.training_images_filepath = training_images_filepath
+        self.training_labels_filepath = training_labels_filepath
+        self.test_images_filepath = test_images_filepath
+        self.test_labels_filepath = test_labels_filepath
+
+    def read_images_labels(self, images_filepath, labels_filepath):
+        labels = []
+        with open(labels_filepath, 'rb') as file:
+            magic, size = struct.unpack(">II", file.read(8))
+            if magic != 2049:
+                raise ValueError('Magic number mismatch, expected 2049, got {}'.format(magic))
+            labels = array("B", file.read())
+
+        with open(images_filepath, 'rb') as file:
+            magic, size, rows, cols = struct.unpack(">IIII", file.read(16))
+            if magic != 2051:
+                raise ValueError('Magic number mismatch, expected 2051, got {}'.format(magic))
+            image_data = array("B", file.read())
+        images = []
+        for i in range(size):
+            images.append([0] * rows * cols)
+        for i in range(size):
+            img = np.array(image_data[i * rows * cols:(i + 1) * rows * cols])
+            img = img.reshape(28, 28)
+            images[i][:] = img
+
+        return images, labels
+
+    def load_data(self):
+        x_train, y_train = self.read_images_labels(self.training_images_filepath, self.training_labels_filepath)
+        x_test, y_test = self.read_images_labels(self.test_images_filepath, self.test_labels_filepath)
+        return (x_train, y_train),(x_test, y_test)
+
+training_images_filepath = 'train-images.idx3-ubyte'
+training_labels_filepath = 'train-labels.idx1-ubyte'
+test_images_filepath = 't10k-images.idx3-ubyte'
+test_labels_filepath = 't10k-labels.idx1-ubyte'
+
+mnist_dataloader = MnistDataloader('train-images.idx3-ubyte',
+                                   'train-labels.idx1-ubyte',
+                                   't10k-images.idx3-ubyte',
+                                   't10k-labels.idx1-ubyte')
+
+(train_image, train_label), (test_image, test_label) = mnist_dataloader.load_data()
+
+print(uploaded.keys())
+!pip install scipy scikit-learn
+
+import numpy as np
+from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.neighbors import KNeighborsClassifier
+import seaborn as sns
+import matplotlib.pyplot as plt
+# Create an instance of the data loader class
+mnist_dataloader = MnistDataloader(training_images_filepath,
+                                   training_labels_filepath,
+                                   test_images_filepath,
+                                   test_labels_filepath)
+
+# Load the data
+(image_train_array, label_train_array), (image_test_array, label_test_array) = mnist_dataloader.load_data()
+
+# Flatten the images for k-NN or SVM
+train_images_flattened = np.reshape(image_train_array, (len(image_train_array), -1))
+test_images_flattened = np.reshape(image_test_array, (len(image_test_array), -1))
+
+# Checking balance in the training set
+unique_train, counts_train = np.unique(label_train_array, return_counts=True)
+train_distribution = dict(zip(unique_train, counts_train))
+print("Training set class distribution:")
+for class_label, count in train_distribution.items():
+    print(f"Class {class_label}: {count}")
+
+# Checking balance in the test set
+unique_test, counts_test = np.unique(label_test_array, return_counts=True)
+test_distribution = dict(zip(unique_test, counts_test))
+print("\nTest set class distribution:")
+for class_label, count in test_distribution.items():
+    print(f"Class {class_label}: {count}")
+
+
+# Classification report
+print("\nClassification Report:")
+print(classification_report(test_label_array, test_predictions))
+
+# Create the confusion matrix
+conf_mat = confusion_matrix(test_label_array, test_predictions)
+
+# Plot the confusion matrix
+plt.figure(figsize=(10, 8))
+sns.heatmap(conf_mat, annot=True, fmt='d', cmap='Blues')
+plt.title('Confusion Matrix for k-NN Classifier on MNIST')
+plt.ylabel('True Label')
+plt.xlabel('Predicted Label')
+plt.show()
+
+def add_gaussian_noise_1(images, mean=10, std=25):
+    """
+    Adds Gaussian noise to a set of images.
+
+    Parameters:
+    - images: NumPy array of images, assumed to be in the shape [num_images, height, width].
+    - mean: Mean of the Gaussian noise.
+    - std: Standard deviation of the Gaussian noise.
+
+    Returns:
+    - noisy_images: NumPy array of images with Gaussian noise added.
+    """
+    # Generate Gaussian noise
+    gaussian_noise = np.random.normal(mean, std, images.shape)
+    # Add the Gaussian noise to the images
+    noisy_images = images + gaussian_noise
+    # Clip the images to be within the valid range
+    noisy_images = np.clip(noisy_images, 0, 255)
+    return noisy_images.astype(images.dtype)
+
+# Convert each list in image_test_array to a NumPy array
+image_test_array_np = np.array([np.array(image) for image in image_test_array])
+n_trials = 5
+
+accuracies = []
+for index in range(n_trials):
+  # Now you can add Gaussian noise
+  gaus_noise_image = add_gaussian_noise_1(image_test_array_np, mean=10, std=25)
+
+  # And then reshape if necessary
+  # k is the number of images, and i, j should be the dimensions of each image
+  gaus_noise_image_2d = gaus_noise_image.reshape(-1, i*j)  # -1 tells numpy to automatically calculate the size of the 'k' dimension
+
+  label_predict_gaus = knn_classifier.predict(gaus_noise_image_2d)
+  accuracy = accuracy_score(label_test_array[:300], label_predict_gaus[:300])
+  print(f"KNN Accuracy with Gaussian Noises: {accuracy}")
+  print(classification_report(label_test_array[:300], label_predict_gaus[:300]))
+  accuracies.append(accuracy)
+print('Mean accuracy for gaussian noise: ', sum(accuracies) / len(accuracies))
+
+def add_salt_and_pepper_noise(images, salt_prob=0.05, pepper_prob=0.01):
+    """
+    Adds salt and pepper noise to a set of images.
+
+    Parameters:
+    - images: NumPy array of images, assumed to be in the shape [num_images, height, width].
+    - salt_prob: Probability of adding 'salt' noise.
+    - pepper_prob: Probability of adding 'pepper' noise.
+
+    Returns:
+    - noisy_images: NumPy array of images with salt and pepper noise added.
+    """
+    # Copy the original images to avoid modifying them
+    noisy_images = np.copy(images)
+    # Salt noise
+    num_salt = np.ceil(salt_prob * images.size * salt_prob)
+    coords = [np.random.randint(0, i - 1, int(num_salt))
+              for i in images.shape]
+    noisy_images[coords] = 255
+    # Pepper noise
+    num_pepper = np.ceil(pepper_prob * images.size * pepper_prob)
+    coords = [np.random.randint(0, i - 1, int(num_pepper))
+              for i in images.shape]
+    noisy_images[coords] = 0
+    return noisy_images
+
+image_test_array_np = np.array([np.array(image) for image in image_test_array])
+
+n_trials = 5
+accuracies = []
+for index in range(n_trials):
+  sp_noise_image = add_salt_and_pepper_noise(image_test_array_np, salt_prob=0.05, pepper_prob=0.01)
+
+  # And then reshape if necessary
+  # k is the number of images, and i, j should be the dimensions of each image
+  sp_noise_image_2d = sp_noise_image.reshape(-1, i*j)  # -1 tells numpy to automatically calculate the size of the 'k' dimension
+  label_predict_sp = knn_classifier.predict(sp_noise_image_2d)
+  accuracy = accuracy_score(label_test_array[:300], label_predict_sp[:300])
+  print(f"KNN Accuracy with Gaussian Noises: {accuracy}")
+  print(classification_report(label_test_array[:300], label_predict_sp[:300]))
+  accuracies.append(accuracy)
+print('Mean accuracy for salt and pepper: ', sum(accuracies) / 5)
+
+import numpy as np
+from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.neighbors import KNeighborsClassifier
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Predict with Gaussian noise
+label_predict_gaus = knn_classifier.predict(gaus_noise_image_2d)
+conf_mat_gaus = confusion_matrix(label_test_array[:300], label_predict_gaus[:300])
+
+# Predict with Salt and Pepper noise
+label_predict_sp = knn_classifier.predict(sp_noise_image_2d)
+conf_mat_sp = confusion_matrix(label_test_array[:300], label_predict_sp[:300])
+
+# Function to plot confusion matrix
+def plot_confusion_matrix(conf_mat, title):
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(conf_mat, annot=True, fmt='d', cmap='Blues')
+    plt.title(title)
+    plt.ylabel('Actual')
+    plt.xlabel('Predicted')
+    plt.show()
+
+# Plot confusion matrix for Gaussian noise
+plot_confusion_matrix(conf_mat_gaus, 'Confusion Matrix for k-NN with Gaussian Noise')
+
+# Plot confusion matrix for Salt and Pepper noise
+plot_confusion_matrix(conf_mat_sp, 'Confusion Matrix for k-NN with Salt and Pepper Noise')
+
+import tensorflow_datasets as tfds
+import numpy as np
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+
+# Load MNIST training data
+mnist_train, info = tfds.load(name="mnist", split="train", with_info=True)
+
+# Prepare training data arrays
+x_train = []
+y_train = []
+for example in tfds.as_numpy(mnist_train.take(1000)):
+    image, label = example["image"], example["label"]
+    x_train.append(image.reshape(-1))
+    y_train.append(label)
+
+x_train = np.array(x_train).astype('float32') / 255.0
+y_train = np.array(y_train)
+
+# Initialize and train the k-NN classifier
+knn_classifier = KNeighborsClassifier(n_neighbors=3)
+knn_classifier.fit(x_train, y_train)
+
+# Load MNIST-C translated dataset
+mnist_c_dataset_translate, info = tfds.load(name="mnist_corrupted/translate", split="test", with_info=True)
+
+# Extract images and labels for the first 300 points
+mnist_c_images_t = []
+mnist_c_labels_t = []
+for example in tfds.as_numpy(mnist_c_dataset_translate.take(300)):  # Limit to first 300 examples
+    image, label = example["image"], example["label"]
+    mnist_c_images_t.append(image.reshape(-1))
+    mnist_c_labels_t.append(label)
+
+# Convert to numpy arrays and normalize
+mnist_c_images_flat_t = np.array(mnist_c_images_t).astype('float32') / 255.0
+mnist_c_labels_flat_t = np.array(mnist_c_labels_t)
+
+# Prediction and accuracy for translated MNIST-C
+y_pred_translate = knn_classifier.predict(mnist_c_images_flat_t)
+accuracy_translate = accuracy_score(mnist_c_labels_flat_t, y_pred_translate)
+print(f'Accuracy for translated MNIST-C: {accuracy_translate:.2f}')
+print(classification_report(mnist_c_labels_flat_t, y_pred_translate))
+
+# Repeat the same process for the rotated MNIST-C dataset
+mnist_c_dataset_rotate, _ = tfds.load(name="mnist_corrupted/rotate", split="test", with_info=True)
+
+# Extract and preprocess images and labels for rotation
+mnist_c_images_r = []
+mnist_c_labels_r = []
+for example in tfds.as_numpy(mnist_c_dataset_rotate.take(300)):  # Limit to first 300 examples
+    image, label = example["image"], example["label"]
+    mnist_c_images_r.append(image.reshape(-1))
+    mnist_c_labels_r.append(label)
+
+# Convert to numpy arrays and normalize
+mnist_c_images_flat_r = np.array(mnist_c_images_r).astype('float32') / 255.0
+mnist_c_labels_flat_r = np.array(mnist_c_labels_r)
+
+# Prediction and accuracy for rotated MNIST-C
+
+y_pred_rotate = knn_classifier.predict(mnist_c_images_flat_r)
+accuracy_rotate = accuracy_score(mnist_c_labels_flat_r, y_pred_rotate)
+print(f'Accuracy for rotated MNIST-C: {accuracy_rotate:.2f}')
+print(classification_report(mnist_c_labels_flat_t, y_pred_rotate))
+
+
+
+# Compute the confusion matrix for the translated MNIST-C
+conf_matrix_translate = confusion_matrix(mnist_c_labels_flat_t, y_pred_translate)
+print('Confusion Matrix for translated MNIST-C:')
+print(conf_matrix_translate)
+
+# Plot the confusion matrix for translated MNIST-C
+plt.figure(figsize=(10, 8))
+sns.heatmap(conf_matrix_translate, annot=True, fmt='d', cmap='Blues')
+plt.title('Confusion Matrix for Translated MNIST-C')
+plt.ylabel('Actual')
+plt.xlabel('Predicted')
+plt.show()
+
+# Compute the confusion matrix for the rotated MNIST-C
+conf_matrix_rotate = confusion_matrix(mnist_c_labels_flat_r, y_pred_rotate)
+print('Confusion Matrix for rotated MNIST-C:')
+print(conf_matrix_rotate)
+
+# Plot the confusion matrix for rotated MNIST-C
+plt.figure(figsize=(10, 8))
+sns.heatmap(conf_matrix_rotate, annot=True, fmt='d', cmap='Blues')
+plt.title('Confusion Matrix for Rotated MNIST-C')
+plt.ylabel('Actual')
+plt.xlabel('Predicted')
+plt.show()
+
+
+
