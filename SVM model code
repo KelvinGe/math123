@@ -1,0 +1,238 @@
+# Training mnist data using SVM
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.svm import SVC
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.datasets import mnist
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+
+# Load MNIST data
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+
+# Select only the first 1300 points
+x_train = x_train[:1000]
+y_train = y_train[:1000]
+x_test = x_test[:300]
+y_test = y_test[:300]
+
+# Flatten the images
+x_train_flat = x_train.reshape(x_train.shape[0], -1)
+x_test_flat = x_test.reshape(x_test.shape[0], -1)
+
+# Normalize the pixel values to the range [0, 1]
+x_train_flat = x_train_flat.astype('float32') / 255.0
+x_test_flat = x_test_flat.astype('float32') / 255.0
+
+
+
+# Train SVM model
+svm_model = SVC(kernel='rbf', C=10, gamma='auto', probability = True)
+svm_model.fit(x_train_flat, y_train)
+
+# Predict on the validation set
+y_pred = svm_model.predict(x_test_flat)
+
+# Evaluate the model
+conf_matrix = confusion_matrix(y_test, y_pred)
+print("Confusion Matrix:")
+print(conf_matrix)
+
+accuracy = np.trace(conf_matrix) / np.sum(conf_matrix)
+print("Confusion Matrix Accuracy:", accuracy)
+print("\n")
+# Predict on the test set
+test_accuracy = svm_model.score(x_test_flat, y_test)
+print("Test Accuracy:", test_accuracy)
+
+
+# Mnist-C dataset rotation evaluation
+
+import numpy as np
+import tensorflow_datasets as tfds
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import StandardScaler
+
+# Load MNIST-C dataset rotated
+mnist_c_dataset, info = tfds.load(name="mnist_corrupted/rotate", split="test", with_info=True)
+
+# Extract images and labels for the first 300 points
+mnist_c_images = []
+mnist_c_labels = []
+count = 0
+for example in mnist_c_dataset:
+    image = example["image"]
+    label = example["label"]
+    mnist_c_images.append(image.numpy().reshape(-1))
+    mnist_c_labels.append(label.numpy())
+    count += 1
+    if count >= 300:
+        break
+
+# Convert to numpy arrays
+mnist_c_images = np.array(mnist_c_images)
+mnist_c_labels = np.array(mnist_c_labels)
+
+# Flatten and normalize the images
+mnist_c_images_flat = mnist_c_images.astype('float32') / 255.0
+
+# Load the SVM model trained on original MNIST dataset
+svm_model = SVC(kernel='rbf', C=10, gamma='auto')
+
+# Fit the SVM model on the original MNIST data
+svm_model.fit(x_train_flat, y_train)
+
+# Preprocess the MNIST-C rotation images using the same scaler used for MNIST
+scaler = StandardScaler()
+scaler.fit(x_train_flat)
+mnist_c_images_scaled = scaler.transform(mnist_c_images_flat)
+
+# Predict labels using the SVM model
+mnist_c_pred = svm_model.predict(mnist_c_images_scaled)
+
+# Confusion matrix evaluation
+conf_matrix_mnistc = confusion_matrix(mnist_c_labels, mnist_c_pred)
+print("\n Confusion Matrix:")
+print(conf_matrix_mnistc)
+accuracy = np.trace(conf_matrix_mnistc) / np.sum(conf_matrix_mnistc)
+print("Accuracy using Confusion Matrix:", accuracy)
+print("\n");
+# Calculate accuracy
+mnist_c_accuracy = accuracy_score(mnist_c_labels, mnist_c_pred)
+print("Accuracy on MNIST-C rotation dataset (using first 300 points):", mnist_c_accuracy)
+
+
+
+# MNIST-C dataset translate evaluation
+
+# Load MNIST-C dataset rotated
+mnist_c_dataset_translate, info = tfds.load(name="mnist_corrupted/translate", split="test", with_info=True)
+
+# Extract images and labels for the first 300 points
+mnist_c_images_t = []
+mnist_c_labels_t = []
+count = 0
+for example in mnist_c_dataset_translate:
+    image = example["image"]
+    label = example["label"]
+    mnist_c_images_t.append(image.numpy().reshape(-1))
+    mnist_c_labels_t.append(label.numpy())
+    count += 1
+    if count >= 300:
+        break
+
+# Convert to numpy arrays
+mnist_c_images_t = np.array(mnist_c_images_t)
+mnist_c_labels_t = np.array(mnist_c_labels_t)
+
+# Flatten and normalize the images
+mnist_c_images_flat_t = mnist_c_images_t.astype('float32') / 255.0
+
+# Load the SVM model trained on original MNIST dataset
+svm_model = SVC(kernel='rbf', C=10, gamma='auto')
+
+# Fit the SVM model on the original MNIST data
+svm_model.fit(x_train_flat, y_train)
+
+# Preprocess the MNIST-C translate images using the same scaler used for MNIST
+scaler_t = StandardScaler()
+scaler_t.fit(x_train_flat)
+mnist_c_images_scaled_t = scaler_t.transform(mnist_c_images_flat_t)
+
+# Predict labels using the SVM model
+mnist_c_pred_t = svm_model.predict(mnist_c_images_scaled_t)
+
+# Confusion matrix evaluation
+conf_matrix_translate = confusion_matrix(mnist_c_labels_t, mnist_c_pred_t)
+print("\n Confusion Matrix:")
+print(conf_matrix_translate)
+accuracy_t = np.trace(conf_matrix_translate) / np.sum(conf_matrix_translate)
+print("Accuracy using Confusion Matrix:", accuracy_t)
+print("\n")
+# Calculate accuracy
+mnist_c_accuracy_t = accuracy_score(mnist_c_labels_t, mnist_c_pred_t)
+print("Accuracy on MNIST-C translate dataset:", mnist_c_accuracy_t)
+
+
+
+# These functions add noise to the testing data of mnist
+
+def add_gaussian_noise(image, mean, std_dev):
+    noise = np.random.normal(loc=mean, scale=std_dev, size=image.shape)
+    noisy_image = image + noise
+    return np.clip(noisy_image, 0, 255).astype(np.uint8)
+
+def add_salt_and_pepper_noise(image, salt_prob, pepper_prob):
+    noisy_image = np.copy(image)
+    salt_mask = np.random.rand(*image.shape) < salt_prob
+    pepper_mask = np.random.rand(*image.shape) < pepper_prob
+    noisy_image[salt_mask] = 255
+    noisy_image[pepper_mask] = 0
+    return noisy_image
+
+# Define noise parameters
+mean = 0
+std_dev = 25
+salt_prob = 0.05
+pepper_prob = 0.01
+
+
+# Apply Gaussian noise to the test set
+x_val_gaussian_noise = np.array([add_gaussian_noise(image, mean, std_dev) for image in x_test_flat])
+test_accuracy_gaussian_noise = svm_model.score(x_val_gaussian_noise.reshape(x_test_flat.shape[0], -1), y_test)
+print("Test Accuracy with Gaussian Noise:", test_accuracy_gaussian_noise)
+print("Standard Deviation: ", std_dev);
+print("\n")
+
+y_pred_gaussian = svm_model.predict(x_val_gaussian_noise)
+
+# Evaluate the model
+conf_matrix_gaussian = confusion_matrix(y_test, y_pred_gaussian)
+print("Confusion Matrix:")
+print(conf_matrix_gaussian)
+accuracy_gaussian = np.trace(conf_matrix_gaussian) / np.sum(conf_matrix_gaussian)
+print("Accuracy using Confusion Matrix:", accuracy_gaussian)
+print("\n")
+# Apply salt and pepper noise to the test set
+x_val_salt_and_pepper_noise = np.array([add_salt_and_pepper_noise(image, salt_prob, pepper_prob) for image in x_test_flat])
+test_accuracy_salt_and_pepper_noise = svm_model.score(x_val_salt_and_pepper_noise.reshape(x_test_flat.shape[0], -1), y_test)
+print("Test Accuracy with Salt and Pepper Noise:", test_accuracy_salt_and_pepper_noise)
+
+y_pred_SnP = svm_model.predict(x_val_salt_and_pepper_noise)
+
+# Evaluate the model
+conf_matrix_SnP = confusion_matrix(y_test, y_pred_SnP)
+print("Confusion Matrix:")
+print(conf_matrix_SnP)
+accuracy_SnP = np.trace(conf_matrix_SnP) / np.sum(conf_matrix_SnP)
+print("Accuracy using Confusion Matrix:", accuracy_SnP)
+
+# Mean for each noise
+def gaussian_noise_mean(trials, x_val, y_val, svm_model, mean, std_dev):
+    accuracies = []
+    for _ in range(trials):
+        x_val_gaussian_noise = np.array([add_gaussian_noise(image, mean, std_dev) for image in x_test_flat])
+        test_accuracy_gaussian_noise = svm_model.score(x_val_gaussian_noise.reshape(x_test_flat.shape[0], -1), y_test)
+        accuracies.append(test_accuracy_gaussian_noise)
+    mean_accuracy = np.mean(accuracies)
+    return mean_accuracy
+
+def salt_and_pepper_noise_mean(trials, x_val, y_val, svm_model, salt_prob, pepper_prob):
+    accuracies = []
+    for _ in range(trials):
+        x_val_salt_and_pepper_noise = np.array([add_salt_and_pepper_noise(image, salt_prob, pepper_prob) for image in x_test_flat])
+        test_accuracy_salt_and_pepper_noise = svm_model.score(x_val_salt_and_pepper_noise.reshape(x_test_flat.shape[0], -1), y_test)
+        accuracies.append(test_accuracy_salt_and_pepper_noise)
+    mean_accuracy = np.mean(accuracies)
+    return mean_accuracy
+
+trials = 5
+mean_accuracy_gaussian = gaussian_noise_mean(trials, x_test_flat, y_test, svm_model, mean, std_dev)
+mean_accuracy_saltnpepper = salt_and_pepper_noise_mean(trials, x_test_flat, y_test, svm_model, salt_prob, pepper_prob)
+print("Mean Test Accuracy with Gaussian Noise:", mean_accuracy_gaussian)
+print("Mean Test Accuracy with Salt and Pepper Noise:", mean_accuracy_saltnpepper)
